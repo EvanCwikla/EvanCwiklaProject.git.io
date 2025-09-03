@@ -1,120 +1,208 @@
-# EvanCwiklaProject.git.io
-
-import pygame, random
-
-# --- CONFIG ---
-TILE = 20
-ROWS, COLS = 61, 61   # big maze
-WIDTH, HEIGHT = 620, 420  # screen size (fixed window)
-FPS = 60
-
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-BLUE  = (50, 50, 200)
-RED   = (200, 50, 50)
-GREEN = (50, 200, 50)
-
-PLAYER_SPEED = 3
+import pygame, random, sys
 
 pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Smooth Maze Explorer")
-clock = pygame.time.Clock()
+
+# --- CONFIG ---
+WIDTH, HEIGHT = 800, 600
+FPS = 60
+
+WHITE = (255,255,255)
+BLACK = (0,0,0)
+BLUE  = (50, 50, 200)
+GREEN = (50, 200, 50)
+RED   = (200, 50, 50)
+YELLOW= (200, 200, 50)
+
 font = pygame.font.SysFont(None, 40)
 
-# --- Maze Generation (recursive backtracker) ---
-def generate_maze(rows, cols):
-    maze = [["#" for _ in range(cols)] for _ in range(rows)]
+# --- Base Level Class ---
+class Level:
+    def __init__(self, manager):
+        self.manager = manager
 
-    def carve(r, c):
-        dirs = [(2,0), (-2,0), (0,2), (0,-2)]
-        random.shuffle(dirs)
-        for dr, dc in dirs:
-            nr, nc = r+dr, c+dc
-            if 0 < nr < rows-1 and 0 < nc < cols-1 and maze[nr][nc] == "#":
-                maze[nr][nc] = "."
-                maze[r+dr//2][c+dc//2] = "."
-                carve(nr, nc)
+    def handle_events(self, events): pass
+    def update(self): pass
+    def draw(self, surface): pass
 
-    maze[1][1] = "."
-    carve(1,1)
-    return maze
+# --- Maze Level ---
+class MazeLevel(Level):
+    TILE = 20
+    ROWS, COLS = 61, 61
+    PLAYER_SPEED = 3
 
-maze = generate_maze(ROWS, COLS)
-maze[ROWS-2][COLS-2] = "G"   # goal in bottom-right
+    def __init__(self, manager):
+        super().__init__(manager)
+        self.font = pygame.font.SysFont(None, 40)
 
-# --- Player ---
-player_rect = pygame.Rect(TILE+2, TILE+2, TILE-4, TILE-4)
+        # fixed maze every run
+        random.seed(42)
+        self.maze = self.generate_maze(self.ROWS, self.COLS)
+        self.maze[self.ROWS-2][self.COLS-2] = "G"
 
-# --- Movement with collision ---
-def move_with_collision(rect, dx, dy):
-    new_rect = rect.move(dx, dy)
-    # check all corners of the rect against maze
-    for px, py in [(new_rect.left, new_rect.top),
-                   (new_rect.right-1, new_rect.top),
-                   (new_rect.left, new_rect.bottom-1),
-                   (new_rect.right-1, new_rect.bottom-1)]:
-        grid_r, grid_c = py // TILE, px // TILE
-        if 0 <= grid_r < ROWS and 0 <= grid_c < COLS:
-            if maze[grid_r][grid_c] == "#":
-                return rect  # block movement
-    return new_rect
+        self.player_rect = pygame.Rect(self.TILE+2, self.TILE+2, self.TILE-4, self.TILE-4)
 
-win = False
-running = True
-while running:
-    clock.tick(FPS)
-    for e in pygame.event.get():
-        if e.type == pygame.QUIT:
-            running = False
+    def generate_maze(self, rows, cols):
+        maze = [["#" for _ in range(cols)] for _ in range(rows)]
 
-    dx = dy = 0
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT]: dx = -PLAYER_SPEED
-    if keys[pygame.K_RIGHT]: dx = PLAYER_SPEED
-    if keys[pygame.K_UP]: dy = -PLAYER_SPEED
-    if keys[pygame.K_DOWN]: dy = PLAYER_SPEED
+        def carve(r, c):
+            dirs = [(2,0), (-2,0), (0,2), (0,-2)]
+            random.shuffle(dirs)
+            for dr, dc in dirs:
+                nr, nc = r+dr, c+dc
+                if 0 < nr < rows-1 and 0 < nc < cols-1 and maze[nr][nc] == "#":
+                    maze[nr][nc] = "."
+                    maze[r+dr//2][c+dc//2] = "."
+                    carve(nr, nc)
 
-    player_rect = move_with_collision(player_rect, dx, dy)
+        maze[1][1] = "."
+        carve(1,1)
 
-    # --- Camera center on player ---
-    cam_x = player_rect.centerx - WIDTH // 2
-    cam_y = player_rect.centery - HEIGHT // 2
+        # deterministic extra openings
+        for r in range(2, rows-2, 10):
+            for c in range(2, cols-2, 10):
+                maze[r][c] = "."
 
-    # Clamp camera inside maze bounds
-    cam_x = max(0, min(cam_x, COLS*TILE - WIDTH))
-    cam_y = max(0, min(cam_y, ROWS*TILE - HEIGHT))
+        return maze
 
-    # --- Check win ---
-    grid_r, grid_c = player_rect.centery // TILE, player_rect.centerx // TILE
-    if maze[grid_r][grid_c] == "G":
-        win = True
+    def move_with_collision(self, rect, dx, dy):
+        new_rect = rect.move(dx, dy)
+        for px, py in [(new_rect.left, new_rect.top),
+                       (new_rect.right-1, new_rect.top),
+                       (new_rect.left, new_rect.bottom-1),
+                       (new_rect.right-1, new_rect.bottom-1)]:
+            grid_r, grid_c = py // self.TILE, px // self.TILE
+            if 0 <= grid_r < self.ROWS and 0 <= grid_c < self.COLS:
+                if self.maze[grid_r][grid_c] == "#":
+                    return rect
+        return new_rect
 
-    # --- Draw ---
-    screen.fill(BLACK)
+    def handle_events(self, events):
+        keys = pygame.key.get_pressed()
+        dx = dy = 0
+        if keys[pygame.K_LEFT]: dx = -self.PLAYER_SPEED
+        if keys[pygame.K_RIGHT]: dx = self.PLAYER_SPEED
+        if keys[pygame.K_UP]: dy = -self.PLAYER_SPEED
+        if keys[pygame.K_DOWN]: dy = self.PLAYER_SPEED
 
-    start_r = cam_y // TILE
-    end_r = (cam_y + HEIGHT) // TILE + 1
-    start_c = cam_x // TILE
-    end_c = (cam_x + WIDTH) // TILE + 1
+        self.player_rect = self.move_with_collision(self.player_rect, dx, dy)
 
-    for r in range(start_r, min(end_r, ROWS)):
-        for c in range(start_c, min(end_c, COLS)):
-            cell = maze[r][c]
-            x, y = c*TILE - cam_x, r*TILE - cam_y
-            if cell == "#":
-                pygame.draw.rect(screen, BLUE, (x, y, TILE, TILE))
-            elif cell == "G":
-                pygame.draw.rect(screen, GREEN, (x+4, y+4, TILE-8, TILE-8))
+        grid_r, grid_c = self.player_rect.centery // self.TILE, self.player_rect.centerx // self.TILE
+        if self.maze[grid_r][grid_c] == "G":
+            self.manager.next_level()
 
-    # Draw player relative to camera
-    pygame.draw.rect(screen, RED, (player_rect.x - cam_x, player_rect.y - cam_y,
-                                   player_rect.width, player_rect.height))
+    def update(self): pass
 
-    if win:
-        txt = font.render("YOU WIN!", True, GREEN)
-        screen.blit(txt, (WIDTH//2 - 80, HEIGHT//2 - 20))
+    def draw(self, surface):
+        cam_x = self.player_rect.centerx - WIDTH // 2
+        cam_y = self.player_rect.centery - HEIGHT // 2
+        cam_x = max(0, min(cam_x, self.COLS*self.TILE - WIDTH))
+        cam_y = max(0, min(cam_y, self.ROWS*self.TILE - HEIGHT))
 
-    pygame.display.flip()
+        surface.fill(BLACK)
 
-pygame.quit()
+        start_r = cam_y // self.TILE
+        end_r = (cam_y + HEIGHT) // self.TILE + 1
+        start_c = cam_x // self.TILE
+        end_c = (cam_x + WIDTH) // self.TILE + 1
+
+        for r in range(start_r, min(end_r, self.ROWS)):
+            for c in range(start_c, min(end_c, self.COLS)):
+                cell = self.maze[r][c]
+                x, y = c*self.TILE - cam_x, r*self.TILE - cam_y
+                if cell == "#":
+                    pygame.draw.rect(surface, BLUE, (x, y, self.TILE, self.TILE))
+                elif cell == "G":
+                    pygame.draw.rect(surface, GREEN, (x+4, y+4, self.TILE-8, self.TILE-8))
+
+        pygame.draw.rect(surface, RED, (self.player_rect.x - cam_x,
+                                        self.player_rect.y - cam_y,
+                                        self.player_rect.width,
+                                        self.player_rect.height))
+
+# --- Placeholder Memory Puzzle ---
+class MemoryLevel(Level):
+    def __init__(self, manager):
+        super().__init__(manager)
+        self.counter = 180
+
+    def handle_events(self, events):
+        for e in events:
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE:
+                self.manager.next_level()
+
+    def update(self):
+        self.counter -= 1
+        if self.counter <= 0:
+            self.manager.next_level()
+
+    def draw(self, surface):
+        surface.fill(BLACK)
+        text = font.render("Memory Puzzle (Press SPACE)", True, WHITE)
+        surface.blit(text, (WIDTH//2 - 200, HEIGHT//2))
+
+# --- Placeholder Sokoban Puzzle ---
+class SokobanLevel(Level):
+    def __init__(self, manager):
+        super().__init__(manager)
+
+    def handle_events(self, events):
+        for e in events:
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_RETURN:
+                self.manager.next_level()
+
+    def draw(self, surface):
+        surface.fill(YELLOW)
+        text = font.render("Sokoban Puzzle (Press ENTER)", True, BLACK)
+        surface.blit(text, (WIDTH//2 - 200, HEIGHT//2))
+
+# --- Level Manager ---
+class LevelManager:
+    def __init__(self):
+        self.levels = [MazeLevel(self), MemoryLevel(self), SokobanLevel(self)]
+        self.current = 0
+        self.active_level = self.levels[self.current]
+
+    def next_level(self):
+        self.current += 1
+        if self.current < len(self.levels):
+            self.active_level = self.levels[self.current]
+        else:
+            print("Game Complete!")
+            pygame.quit()
+            sys.exit()
+
+    def handle_events(self, events):
+        self.active_level.handle_events(events)
+
+    def update(self):
+        self.active_level.update()
+
+    def draw(self, surface):
+        self.active_level.draw(surface)
+
+# --- Main Game Loop ---
+def main():
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Arcade Puzzle Game")
+    clock = pygame.time.Clock()
+
+    manager = LevelManager()
+    running = True
+
+    while running:
+        events = pygame.event.get()
+        for e in events:
+            if e.type == pygame.QUIT:
+                running = False
+
+        manager.handle_events(events)
+        manager.update()
+        manager.draw(screen)
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()
