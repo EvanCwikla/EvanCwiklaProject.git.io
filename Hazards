@@ -1,0 +1,16 @@
+import pygame
+from settings import TILE, YELLOW
+
+class MovingBlock:
+    def __init__(self, path):
+        self.path = path
+        self.index = 0
+        self.x, self.y = path[0]
+
+    def update(self):
+        self.index = (self.index + 1) % len(self.path)
+        self.x, self.y = self.path[self.index]
+
+    def draw(self, screen):
+        rect = pygame.Rect(self.x * TILE, self.y * TILE, TILE, TILE)
+        pygame.draw.rect(screen, YELLOW, rect)
