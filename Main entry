@@ -1,0 +1,30 @@
+import pygame
+from settings import WIDTH, HEIGHT, FPS, BLACK
+from levels import Level
+from level_data import LEVELS
+
+def main():
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+
+    current_level = 0
+    level = Level(LEVELS[current_level])
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            level.handle_event(event)
+
+        level.update()
+        screen.fill(BLACK)
+        level.draw(screen)
+        pygame.display.flip()
+        clock.tick(FPS)
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()
