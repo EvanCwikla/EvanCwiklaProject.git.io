@@ -1,0 +1,14 @@
+temple-ruins/
+│── temple_ruins.py       # main entry point
+│── settings.py           # config values (tile size, colors, fps, etc.)
+│── level_data.py         # level layouts & definitions
+│── entities.py           # Player, Enemy, Guardian, Boulder, etc.
+│── puzzles.py            # puzzle logic (switches, gates, mirrors, gears)
+│── hazards.py            # moving blocks, stalactites, patrols
+│── levels.py             # Level class (loads entities + puzzles + hazards)
+│── utils.py              # helper functions (grid conversion, timers, etc.)
+│── assets/               # (future: textures, sounds, music)
+│── docs/
+│   └── LEVELS.md         # detailed level-by-level documentation
+│── README.md             # game overview (the one I wrote for you)
+
