@@ -1,0 +1,75 @@
+LEVELS = [
+    # --- Level 1: Tutorial Labyrinth ---
+    {
+        "name": "Tutorial Labyrinth",
+        "player": (1, 1),
+        "keys": [(3, 3), (6, 3), (9, 3)],   # must collect in order
+        "blocks": [[(5, 5), (10, 5), (10, 10), (5, 10)]],  # moving block patrol
+    },
+
+    # --- Level 2: Switches & Gates ---
+    {
+        "name": "Switches & Gates",
+        "player": (2, 2),
+        "switches": [(4, 4), (6, 4), (8, 4)],
+        "gates": [(5, 4), (7, 4), (9, 4)],   # open/close with switches
+    },
+
+    # --- Level 3: Mirror Path ---
+    {
+        "name": "Mirror Path",
+        "player": (1, 1),
+        "mirrors": [(4, 5), (6, 7)],
+        "targets": [(10, 10), (12, 8)],
+        "stalactites": [(5, 2), (7, 2), (9, 2)],  # drop hazards
+    },
+
+    # --- Level 4: Memory Run ---
+    {
+        "name": "Memory Run",
+        "player": (1, 1),
+        "memory_tiles": [(3, 3), (4, 3), (5, 3), (6, 3)],
+        "sequence": [0, 2, 1, 3],  # correct order
+        "enemies": [[(8, 5), (12, 5), (12, 8), (8, 8)]],  # patrol
+    },
+
+    # --- Level 5: Boulder Logic ---
+    {
+        "name": "Boulder Logic",
+        "player": (2, 2),
+        "boulders": [(4, 4), (5, 5)],
+        "plates": [(10, 4), (12, 6)],
+        "rolling_hazards": [[(6, 2), (6, 8)]],  # vertical roller
+    },
+
+    # --- Level 6: The Bridge of Time ---
+    {
+        "name": "The Bridge of Time",
+        "player": (1, 7),
+        "timed_bridges": [(3, 7), (4, 7), (5, 7), (6, 7), (7, 7)],
+        "exit": (12, 7),
+    },
+
+    # --- Level 7: Pattern Locks ---
+    {
+        "name": "Pattern Locks",
+        "player": (2, 2),
+        "gears": [
+            {"pos": (6, 6), "target": 90},
+            {"pos": (8, 6), "target": 180},
+            {"pos": (10, 6), "target": 270}
+        ]
+    },
+
+    # --- Level 8: The Final Chamber ---
+    {
+        "name": "The Final Chamber",
+        "player": (1, 1),
+        "keys": [(2, 8), (8, 2)],
+        "boulders": [(5, 5)],
+        "plates": [(10, 5)],
+        "enemies": [[(3, 3), (6, 3), (6, 6), (3, 6)]],
+        "guardian": (12, 12),  # chases player
+        "exit": (14, 7)
+    }
+]
