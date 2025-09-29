@@ -1,0 +1,178 @@
+import pygame, sys, random
+
+pygame.init()
+
+# --- CONFIG ---
+TILE = 40
+GRID_W, GRID_H = 41, 31  # odd numbers work best for maze carving
+VIEW_W, VIEW_H = 20, 15  # visible screen size
+WIDTH, HEIGHT = VIEW_W * TILE, VIEW_H * TILE
+
+# Colors
+BLACK = (0, 0, 0)
+GRAY = (100, 100, 100)
+GREEN = (0, 200, 0)
+YELLOW = (240, 240, 0)
+BLUE = (0, 100, 255)
+BROWN = (160, 80, 40)
+
+# --- SCREEN ---
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Temple Ruins - Maze Dungeon")
+clock = pygame.time.Clock()
+FPS = 60
+
+
+# --- PLAYER ---
+class Player:
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+        self.color = GREEN
+
+    def move(self, dx, dy, walls):
+        nx, ny = self.x + dx, self.y + dy
+        if (nx, ny) not in walls:
+            self.x, self.y = nx, ny
+
+    def draw(self, surf, cam_x, cam_y):
+        pygame.draw.rect(surf, self.color,
+                         ((self.x - cam_x) * TILE, (self.y - cam_y) * TILE, TILE, TILE))
+
+
+# --- LEVEL OBJECTS ---
+class Key:
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+        self.collected = False
+
+    def draw(self, surf, cam_x, cam_y):
+        if not self.collected:
+            pygame.draw.circle(surf, YELLOW,
+                               ((self.x - cam_x) * TILE + TILE // 2,
+                                (self.y - cam_y) * TILE + TILE // 2), TILE // 3)
+
+
+class Door:
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+        self.locked = True
+
+    def draw(self, surf, cam_x, cam_y):
+        color = BROWN if self.locked else BLUE
+        pygame.draw.rect(surf, color,
+                         ((self.x - cam_x) * TILE, (self.y - cam_y) * TILE, TILE, TILE))
+
+
+# --- MAZE GENERATION (Recursive Backtracking) ---
+def generate_maze(w, h):
+    walls = {(x, y) for x in range(w) for y in range(h)}  # start filled with walls
+    start = (1, 1)
+    stack = [start]
+    carved = {start}
+    walls.remove(start)
+
+    dirs = [(2, 0), (-2, 0), (0, 2), (0, -2)]
+
+    while stack:
+        x, y = stack[-1]
+        random.shuffle(dirs)
+        carved_move = False
+        for dx, dy in dirs:
+            nx, ny = x + dx, y + dy
+            if 1 <= nx < w - 1 and 1 <= ny < h - 1 and (nx, ny) not in carved:
+                # carve wall between
+                walls.discard((x + dx // 2, y + dy // 2))
+                walls.discard((nx, ny))
+                carved.add((nx, ny))
+                stack.append((nx, ny))
+                carved_move = True
+                break
+        if not carved_move:
+            stack.pop()
+
+    return walls
+
+
+# --- LEVEL DATA ---
+def load_level():
+    walls = generate_maze(GRID_W, GRID_H)
+
+    # Place player
+    player = Player(1, 1)
+
+    # Place keys (on floor, not walls)
+    keys = []
+    open_spaces = [(x, y) for x in range(1, GRID_W - 1)
+                   for y in range(1, GRID_H - 1) if (x, y) not in walls]
+    random.shuffle(open_spaces)
+    for pos in open_spaces[:3]:
+        keys.append(Key(*pos))
+
+    # Place door at far corner
+    door = Door(GRID_W - 2, GRID_H - 2)
+
+    return player, walls, keys, door
+
+
+# --- CAMERA ---
+def get_camera(player_x, player_y):
+    """Center camera on player, clamp to world size"""
+    cam_x = max(0, min(player_x - VIEW_W // 2, GRID_W - VIEW_W))
+    cam_y = max(0, min(player_y - VIEW_H // 2, GRID_H - VIEW_H))
+    return cam_x, cam_y
+
+
+# --- MAIN LOOP ---
+def main():
+    player, walls, keys, door = load_level()
+
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_UP: player.move(0, -1, walls)
+                if e.key == pygame.K_DOWN: player.move(0, 1, walls)
+                if e.key == pygame.K_LEFT: player.move(-1, 0, walls)
+                if e.key == pygame.K_RIGHT: player.move(1, 0, walls)
+
+        # --- Collect keys ---
+        for k in keys:
+            if not k.collected and (player.x, player.y) == (k.x, k.y):
+                k.collected = True
+                print("Collected a key!")
+
+        # Unlock door if all keys collected
+        if all(k.collected for k in keys):
+            door.locked = False
+
+        # Check if player reaches door
+        if not door.locked and (player.x, player.y) == (door.x, door.y):
+            print("Level Complete!")
+            pygame.quit()
+            sys.exit()
+
+        # --- Camera follows player ---
+        cam_x, cam_y = get_camera(player.x, player.y)
+
+        # --- Draw ---
+        screen.fill(BLACK)
+
+        # Walls
+        for (x, y) in walls:
+            if cam_x <= x < cam_x + VIEW_W and cam_y <= y < cam_y + VIEW_H:
+                pygame.draw.rect(screen, GRAY,
+                                 ((x - cam_x) * TILE, (y - cam_y) * TILE, TILE, TILE))
+
+        # Objects
+        for k in keys: k.draw(screen, cam_x, cam_y)
+        door.draw(screen, cam_x, cam_y)
+        player.draw(screen, cam_x, cam_y)
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+if __name__ == "__main__":
+    main()
