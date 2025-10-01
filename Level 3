@@ -1,1 +1,215 @@
+import pygame, sys, random
 
+pygame.init()
+
+# --- CONFIG ---
+TILE = 32
+GRID_W, GRID_H = 61, 41
+VIEW_W, VIEW_H = 20, 15
+WIDTH, HEIGHT = VIEW_W * TILE, VIEW_H * TILE
+
+BLACK = (0, 0, 0)
+GRAY = (100, 100, 100)
+WHITE = (255, 255, 255)
+YELLOW = (255, 255, 100)
+BLUE = (100, 100, 255)
+RED = (255, 80, 80)
+
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+
+# --- CLASSES ---
+class Player:
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+
+    def move(self, dx, dy, walls):
+        nx, ny = self.x + dx, self.y + dy
+        if (nx, ny) not in walls:
+            self.x, self.y = nx, ny
+
+class Door:
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+        self.locked = True
+
+    def draw(self, surf, camx, camy):
+        color = RED if self.locked else BLUE
+        pygame.draw.rect(surf, color,
+            ((self.x - camx) * TILE, (self.y - camy) * TILE, TILE, TILE))
+
+class Mirror:
+    def __init__(self, x, y, orientation="/"):
+        self.x, self.y = x, y
+        self.orientation = orientation  # "/" or "\\"
+
+    def rotate(self):
+        self.orientation = "/" if self.orientation == "\\" else "\\"
+
+    def draw(self, surf, camx, camy):
+        rect = ((self.x - camx) * TILE, (self.y - camy) * TILE, TILE, TILE)
+        pygame.draw.rect(surf, GRAY, rect, 2)
+        font = pygame.font.SysFont(None, 24)
+        text = font.render(self.orientation, True, WHITE)
+        surf.blit(text, (rect[0] + 8, rect[1] + 4))
+
+class LightBeam:
+    def __init__(self, source, mirrors, door):
+        self.source = source  # (x,y,dx,dy)
+        self.mirrors = mirrors
+        self.door = door
+        self.path = []
+
+    def update(self):
+        self.path = []
+        x, y, dx, dy = self.source
+        for _ in range(400):  # max bounces
+            x += dx
+            y += dy
+            self.path.append((x, y))
+
+            # door hit
+            if (x, y) == (self.door.x, self.door.y):
+                self.door.locked = False
+                break
+
+            # mirror bounce
+            for m in self.mirrors:
+                if (x, y) == (m.x, m.y):
+                    if m.orientation == "/":
+                        dx, dy = -dy, -dx
+                    else:  # "\"
+                        dx, dy = dy, dx
+                    break
+
+    def draw(self, surf, camx, camy):
+        for (x, y) in self.path:
+            rect = ((x - camx) * TILE + TILE//4,
+                    (y - camy) * TILE + TILE//4,
+                    TILE//2, TILE//2)
+            pygame.draw.rect(surf, YELLOW, rect)
+
+class Hazard:
+    def __init__(self, x, y, dx, dy):
+        self.x, self.y = x, y
+        self.dx, self.dy = dx, dy
+
+    def update(self, player, walls):
+        nx, ny = self.x + self.dx, self.y + self.dy
+
+        # bounce if hit a wall
+        if (nx, ny) in walls:
+            if (self.x + self.dx, self.y) in walls:
+                self.dx *= -1
+            if (self.x, self.y + self.dy) in walls:
+                self.dy *= -1
+            nx, ny = self.x + self.dx, self.y + self.dy
+
+        self.x, self.y = nx, ny
+
+        # hit player
+        if (self.x, self.y) == (player.x, player.y):
+            print("Hit by hazard!")
+            pygame.quit(); sys.exit()
+
+    def draw(self, surf, camx, camy):
+        rect = ((self.x - camx) * TILE, (self.y - camy) * TILE, TILE, TILE)
+        pygame.draw.rect(surf, RED, rect)
+
+# --- LEVEL 3: Mirror Path ---
+def load_level():
+    walls = set()
+    for x in range(GRID_W):
+        for y in range(GRID_H):
+            walls.add((x, y))
+
+    def carve_rect(x1, y1, x2, y2):
+        for xx in range(x1, x2 + 1):
+            for yy in range(y1, y2 + 1):
+                walls.discard((xx, yy))
+
+    # Large chamber
+    carve_rect(2, 2, 58, 38)
+
+    # Player
+    player = Player(4, 10)
+
+    # Door target
+    door = Door(55, 6)
+    walls.discard((door.x, door.y))
+
+    # Mirrors placed in solvable sequence
+    mirrors = [
+        Mirror(12, 10, "/"),   # beam goes up
+        Mirror(12, 6, "\\"),   # beam goes right
+        Mirror(30, 6, "\\"),   # beam goes down
+        Mirror(30, 12, "/"),   # beam goes right
+        Mirror(48, 12, "\\"),  # beam goes up
+        Mirror(48, 6, "/"),    # beam goes right into door
+    ]
+
+    # Light source
+    source = (5, 10, 1, 0)  # start moving right
+    beam = LightBeam(source, mirrors, door)
+
+    # Hazards: bouncing projectiles
+    hazards = []
+    for _ in range(8):  # more hazards
+        x = random.randint(8, 50)
+        y = random.randint(5, 30)
+        dx, dy = random.choice([(1,0), (-1,0), (0,1), (0,-1), (1,1), (-1,1), (1,-1), (-1,-1)])
+        hazards.append(Hazard(x, y, dx, dy))
+
+    return player, walls, mirrors, beam, door, hazards
+
+# --- GAME LOOP ---
+def main():
+    player, walls, mirrors, beam, door, hazards = load_level()
+
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+            elif e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_ESCAPE:
+                    pygame.quit(); sys.exit()
+                elif e.key == pygame.K_UP: player.move(0, -1, walls)
+                elif e.key == pygame.K_DOWN: player.move(0, 1, walls)
+                elif e.key == pygame.K_LEFT: player.move(-1, 0, walls)
+                elif e.key == pygame.K_RIGHT: player.move(1, 0, walls)
+                elif e.key == pygame.K_SPACE:
+                    for m in mirrors:
+                        if (m.x, m.y) == (player.x, player.y):
+                            m.rotate()
+
+        # Update beam + hazards
+        beam.update()
+        for h in hazards:
+            h.update(player, walls)
+
+        # Check win
+        if (player.x, player.y) == (door.x, door.y) and not door.locked:
+            print("Level Complete!")
+            pygame.quit(); sys.exit()
+
+        # Camera
+        camx = max(0, min(player.x - VIEW_W // 2, GRID_W - VIEW_W))
+        camy = max(0, min(player.y - VIEW_H // 2, GRID_H - VIEW_H))
+
+        # Draw
+        screen.fill(BLACK)
+        for (x, y) in walls:
+            rect = ((x - camx) * TILE, (y - camy) * TILE, TILE, TILE)
+            pygame.draw.rect(screen, GRAY, rect)
+        for m in mirrors: m.draw(screen, camx, camy)
+        beam.draw(screen, camx, camy)
+        door.draw(screen, camx, camy)
+        for h in hazards: h.draw(screen, camx, camy)
+        pygame.draw.rect(screen, WHITE,
+            ((player.x - camx) * TILE, (player.y - camy) * TILE, TILE, TILE))
+
+        pygame.display.flip()
+        clock.tick(10)
+
+if __name__ == "__main__":
+    main()
