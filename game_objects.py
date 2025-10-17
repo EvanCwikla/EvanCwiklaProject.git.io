@@ -168,3 +168,52 @@ class Enemy:
         """Draws the enemy on the screen."""
         rect = ((self.x - camx) * TILE, (self.y - camy) * TILE, TILE, TILE)
         pygame.draw.rect(surf, RED, rect)
+
+class Boulder:
+    """A boulder that can be pushed by the player."""
+
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+
+    def draw(self, surf, cam_x, cam_y):
+        rect = ((self.x - cam_x) * TILE, (self.y - cam_y) * TILE, TILE, TILE)
+        pygame.draw.rect(surf, (110, 80, 50), rect)  # A dark brown color
+
+class PressurePlate:
+    """A pressure plate that activates when a boulder is on it."""
+
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+        self.is_active = False
+
+    def draw(self, surf, cam_x, cam_y):
+        rect = ((self.x - cam_x) * TILE, (self.y - cam_y) * TILE, TILE, TILE)
+        # The plate glows green when active
+        color = (0, 70, 0) if not self.is_active else (50, 255, 50)
+        pygame.draw.rect(surf, color, rect)
+
+class Bridge:
+    """A bridge tile that appears and disappears on a timer."""
+    def __init__(self, x, y, solid_time, vanish_time, offset=0):
+        self.x, self.y = x, y
+        self.solid_duration = solid_time  # How long it stays solid (in frames)
+        self.vanish_duration = vanish_time # How long it stays vanished (in frames)
+        self.timer = offset
+        self.is_solid = offset <= 0 # If offset is 0, start solid
+
+    def update(self):
+        """Updates the bridge's timer and toggles its state."""
+        self.timer -= 1
+        if self.timer <= 0:
+            self.is_solid = not self.is_solid
+            # Reset timer to the appropriate duration for the new state
+            self.timer = self.solid_duration if self.is_solid else self.vanish_duration
+
+    def draw(self, surf, cam_x, cam_y):
+        rect = ((self.x - cam_x) * TILE, (self.y - cam_y) * TILE, TILE, TILE)
+        if self.is_solid:
+            # Draw a solid, light-blue bridge
+            pygame.draw.rect(surf, (150, 200, 255), rect)
+        else:
+            # Draw a faint outline to show where the bridge will be
+            pygame.draw.rect(surf, (50, 70, 90), rect, 2) # The '2' means draw a 2px outline
