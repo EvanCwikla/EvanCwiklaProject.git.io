@@ -25,7 +25,6 @@ class MemoryPuzzle:
         if self.complete:
             return
 
-        # Phase 1: Show the sequence to the player
         if self.showing:
             self.show_timer -= 1
             if self.show_timer <= 0:
@@ -35,13 +34,17 @@ class MemoryPuzzle:
                     self.showing = False
             return
 
-        # Phase 2: Player tries to replicate the sequence
         player_pos = (player.x, player.y)
         if player_pos in self.tiles and player_pos != self.last_player_pos:
             self.progress.append(player_pos)
+            # --- CHANGE: This is the updated logic for a wrong answer ---
             if self.progress[-1] != self.sequence[len(self.progress) - 1]:
-                print("Wrong sequence! Resetting puzzle.")
-                self.progress = []
+                print("Wrong sequence! Repeating the pattern.")
+                self.progress = []  # Clear the player's attempt
+                self.showing = True  # Go back to the showing phase
+                self.show_index = 0  # Start showing from the beginning
+                self.show_timer = 60  # Give a slightly longer pause before starting
+            # --- End of change ---
             elif len(self.progress) == len(self.sequence):
                 print("Puzzle Solved!")
                 self.complete = True
@@ -53,7 +56,8 @@ class MemoryPuzzle:
             rect = ((tx - camx) * TILE, (ty - camy) * TILE, TILE, TILE)
             pygame.draw.rect(surf, DARK_GRAY, rect, 2)
 
-            if self.showing and self.sequence[self.show_index] == tile_pos and self.show_timer > 5:
+            if self.showing and self.show_index < len(self.sequence) and self.sequence[
+                self.show_index] == tile_pos and self.show_timer > 5:
                 pygame.draw.rect(surf, YELLOW, rect)
 
             if tile_pos in self.progress:
@@ -77,14 +81,16 @@ class Level4(Level):
         self.door = Door(55, 20)
         self.walls.discard((self.door.x, self.door.y))
 
-        tiles = [(20, 15), (22, 15), (24, 15), (26, 15),
-                 (20, 17), (22, 17), (24, 17), (26, 17)]
+        # --- CHANGE: The puzzle tiles are now closer to the player's start position ---
+        tiles = [(10, 18), (12, 18), (14, 18), (16, 18),
+                 (10, 22), (12, 22), (14, 22), (16, 22)]
         self.puzzle = MemoryPuzzle(tiles, length=5)
+        # --- End of change ---
 
         self.enemies = [
-            Enemy(15, 10, [(15, 10), (40, 10)]),
-            Enemy(40, 30, [(40, 30), (15, 30)]),
-            Enemy(30, 5, [(30, 5), (30, 35)])
+            Enemy(25, 10, [(25, 10), (50, 10)]),
+            Enemy(50, 30, [(50, 30), (25, 30)]),
+            Enemy(38, 5, [(38, 5), (38, 35)])
         ]
 
     def _carve_rect(self, x1, y1, x2, y2):
@@ -93,15 +99,10 @@ class Level4(Level):
                 self.walls.discard((x, y))
 
     def handle_event(self, event):
-        """This method is now empty for this level."""
         pass
 
     def update(self):
-        """Updates player movement, puzzle logic, and enemies."""
-        # --- NEW: Handle player's continuous movement ---
         self.player.update(self.walls)
-
-        # Update puzzle and enemies
         self.puzzle.update(self.player)
 
         for en in self.enemies:
