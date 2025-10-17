@@ -1,5 +1,3 @@
-# main.py
-import pygame, sys
 from settings import *
 
 # Import all your level classes
@@ -7,7 +5,8 @@ from levels.level1 import Level1
 from levels.level2 import Level2
 from levels.level3 import Level3
 from levels.level4 import Level4
-
+from levels.level5 import Level5
+from levels.level6 import Level6
 
 class Game:
     def __init__(self):
@@ -20,7 +19,7 @@ class Game:
         self.transition_timer = 0
 
         # A list of all level classes in order
-        self.levels = [Level1, Level2, Level3, Level4]  # <-- ADDED THE NEW LEVELS
+        self.levels = [Level1, Level2, Level3, Level4, Level5, Level6]  # <-- ADDED THE NEW LEVELS
         self.current_level_index = 0
         self.load_current_level()
 
