@@ -1,6 +1,7 @@
 # game_objects.py
 import pygame
 import random
+import math
 from settings import *
 
 
@@ -16,10 +17,6 @@ class Player:
         self.move_timer = 0  # The current countdown timer.
 
     def update(self, obstacles):
-        """
-        This new method handles the continuous movement logic.
-        It should be called once per frame from the level's update loop.
-        """
         # First, count down the timer
         if self.move_timer > 0:
             self.move_timer -= 1
@@ -217,3 +214,112 @@ class Bridge:
         else:
             # Draw a faint outline to show where the bridge will be
             pygame.draw.rect(surf, (50, 70, 90), rect, 2) # The '2' means draw a 2px outline
+
+
+class Gear:
+    """
+    A rotating gear that acts as a spinning hazard.
+    The spokes are dangerous, and the axle (center) is also impassable.
+    """
+
+    def __init__(self, x, y, radius, speed):
+        self.x, self.y = x, y  # Axle (center) position
+        self.radius = radius
+        self.speed = speed
+        self.current_angle = 0.0
+        self.is_rotating = True
+        self.spoke_angles = [0, 90, 180, 270]  # 4 spokes
+
+    def update(self):
+        """Updates the gear's rotation."""
+        if self.is_rotating:
+            self.current_angle = (self.current_angle + self.speed) % 360
+
+    def get_axle_tile(self):
+        """Returns the safe center tile."""
+        return (self.x, self.y)
+
+    def get_hazard_tiles(self):
+        """Returns a set of all tiles covered by the spinning spokes."""
+        tiles = set()
+
+        for angle_offset in self.spoke_angles:
+            angle_deg = (self.current_angle + angle_offset) % 360
+            angle_rad = math.radians(angle_deg)
+            dx, dy = math.cos(angle_rad), math.sin(angle_rad)
+
+            # Get all tiles along the spoke from center to radius
+            for r in range(1, self.radius + 1):
+                tx = round(self.x + dx * r)
+                ty = round(self.y + dy * r)
+                tiles.add((tx, ty))
+
+        tiles.discard((self.x, self.y))  # The axle is handled separately
+        return tiles
+
+    def draw(self, surf, camx, camy):
+        # 1. Draw hazard spokes
+        for (tx, ty) in self.get_hazard_tiles():
+            if camx <= tx < camx + VIEW_W and camy <= ty < camy + VIEW_H:
+                rect = ((tx - camx) * TILE, (ty - camy) * TILE, TILE, TILE)
+                pygame.draw.rect(surf, RED, rect)  # Spokes are always dangerous
+
+        # 2. Draw axle (center tile)
+        if camx <= self.x < camx + VIEW_W and camy <= self.y < camy + VIEW_H:
+            axle_rect = ((self.x - camx) * TILE, (self.y - camy) * TILE, TILE, TILE)
+            pygame.draw.rect(surf, DARK_GRAY, axle_rect)  # Axle is just a block
+
+
+class ChaserEnemy:
+    """An enemy that actively chases the player."""
+
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+        self.speed_timer = 0
+        self.move_cooldown = 12  # Moves slightly slower than the player
+
+    def update(self, player, obstacles):
+        """
+        Updates the chaser's position using a simple pathfinding.
+        Moves toward the player, checking obstacles.
+        """
+        self.speed_timer += 1
+        if self.speed_timer < self.move_cooldown:
+            return None
+        self.speed_timer = 0
+
+        if (self.x, self.y) == (player.x, player.y):
+            return "reset"  # Player is caught
+
+        dx = player.x - self.x
+        dy = player.y - self.y
+
+        # Try to move in the direction of the largest distance
+        if abs(dx) > abs(dy):
+            # Try to move horizontally
+            move_x = dx // abs(dx) if dx != 0 else 0
+            if (self.x + move_x, self.y) not in obstacles:
+                self.x += move_x
+            # If blocked, try to move vertically
+            elif dy != 0:
+                move_y = dy // abs(dy)
+                if (self.x, self.y + move_y) not in obstacles:
+                    self.y += move_y
+        else:
+            # Try to move vertically
+            move_y = dy // abs(dy) if dy != 0 else 0
+            if (self.x, self.y + move_y) not in obstacles:
+                self.y += move_y
+            # If blocked, try to move horizontally
+            elif dx != 0:
+                move_x = dx // abs(dx)
+                if (self.x + move_x, self.y) not in obstacles:
+                    self.x += move_x
+
+        if (self.x, self.y) == (player.x, player.y):
+            return "reset"  # Player is caught
+
+    def draw(self, surf, camx, camy):
+        rect = ((self.x - camx) * TILE, (self.y - camy) * TILE, TILE, TILE)
+        # Draw a scarier-looking enemy
+        pygame.draw.rect(surf, (255, 0, 100), rect)  # Bright Pink/Magenta
