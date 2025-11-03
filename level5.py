@@ -13,16 +13,13 @@ class Level5(Level):
         self.grid_w, self.grid_h = 25, 20
         self.walls = set()
 
-        # Player movement timing
         self.move_cooldown = 8
         self.move_timer = 0
 
-        # --- Level Design ---
         self._create_layout()
         self.player = Player(4, 5)
         self.door = Door(self.grid_w - 2, self.grid_h // 2)
 
-        # --- Puzzle Elements ---
         self.boulders = [
             Boulder(7, 5),
             Boulder(10, 8),
@@ -36,28 +33,20 @@ class Level5(Level):
 
     def _create_layout(self):
         """Creates the rooms and corridors for the level."""
-        # Create a border of walls
         for x in range(self.grid_w):
             for y in range(self.grid_h):
                 if x == 0 or x == self.grid_w - 1 or y == 0 or y == self.grid_h - 1:
                     self.walls.add((x, y))
 
-        # Add some internal walls to make the puzzle interesting
         for y in range(8, 12): self.walls.add((14, y))
         for y in range(0, 5): self.walls.add((14, y))
         for y in range(15, 20): self.walls.add((14, y))
 
     def handle_event(self, event):
-        """
-        For this level, we handle movement here to implement push logic.
-        We do NOT use player.update().
-        """
-        # This is a placeholder since movement is now in update()
         pass
 
     def update(self):
         """Updates player movement, puzzle logic, and win condition."""
-        # --- Custom Player Movement for Sokoban Logic ---
         if self.move_timer > 0:
             self.move_timer -= 1
 
@@ -77,7 +66,6 @@ class Level5(Level):
                 self.try_move_player(dx, dy)
                 self.move_timer = self.move_cooldown
 
-        # --- Puzzle Logic ---
         all_plates_active = True
         boulder_positions = {(b.x, b.y) for b in self.boulders}
         for plate in self.plates:
@@ -85,9 +73,8 @@ class Level5(Level):
                 plate.is_active = True
             else:
                 plate.is_active = False
-                all_plates_active = False  # If any plate is not active, keep door locked
+                all_plates_active = False
 
-        # --- Win Condition ---
         if all_plates_active:
             self.door.locked = False
 
@@ -100,9 +87,8 @@ class Level5(Level):
         target_x = self.player.x + dx
         target_y = self.player.y + dy
 
-        # Check if the target tile is a wall
         if (target_x, target_y) in self.walls:
-            return  # Can't move into a wall
+            return
 
         boulder_to_push = None
         for boulder in self.boulders:
@@ -110,37 +96,38 @@ class Level5(Level):
                 boulder_to_push = boulder
                 break
 
-        # Case 1: Moving into an empty space
         if boulder_to_push is None:
             self.player.x = target_x
             self.player.y = target_y
             return
-
-        # Case 2: Trying to push a boulder
         else:
             boulder_target_x = boulder_to_push.x + dx
             boulder_target_y = boulder_to_push.y + dy
 
-            # Check if space behind boulder is blocked by a wall or another boulder
             if (boulder_target_x, boulder_target_y) in self.walls:
                 return
             for other_boulder in self.boulders:
                 if other_boulder.x == boulder_target_x and other_boulder.y == boulder_target_y:
-                    return  # Blocked by another boulder
+                    return
 
-            # If the space is clear, move both player and boulder
             boulder_to_push.x = boulder_target_x
             boulder_to_push.y = boulder_target_y
             self.player.x = target_x
             self.player.y = target_y
 
     def draw(self, surface):
-        # This level is small, so we don't need a scrolling camera
-        camx, camy = 0, 0
+        # --- THIS IS THE UPDATED CODE ---
+        # The camera now follows the player and clamps to the level's boundaries.
+        camx = max(0, min(self.player.x - VIEW_W // 2, self.grid_w - VIEW_W))
+        camy = max(0, min(self.player.y - VIEW_H // 2, self.grid_h - VIEW_H))
+        # --- End of update ---
+
         surface.fill(BLACK)
 
+        # Draw only the visible walls
         for (x, y) in self.walls:
-            pygame.draw.rect(surface, GRAY, (x * TILE, y * TILE, TILE, TILE))
+            if camx <= x < camx + VIEW_W and camy <= y < camy + VIEW_H:
+                pygame.draw.rect(surface, GRAY, ((x - camx) * TILE, (y - camy) * TILE, TILE, TILE))
 
         for plate in self.plates: plate.draw(surface, camx, camy)
         for boulder in self.boulders: boulder.draw(surface, camx, camy)
