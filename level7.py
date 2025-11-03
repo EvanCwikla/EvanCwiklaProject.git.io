@@ -5,17 +5,18 @@ from levels.level_base import Level
 # We need to import the Key class
 from game_objects import Player, Door, Gear, Key
 
+
 class Level7(Level):
     def __init__(self):
         super().__init__()
         self.grid_w, self.grid_h = 40, 25
-        
+
         # --- Level Layout ---
         self._create_layout()
         self.player = Player(3, 3)
         self.door = Door(self.grid_w - 4, self.grid_h - 4)
-        self.door.locked = True # Door starts locked
-        
+        self.door.locked = True  # Door starts locked
+
         # --- Puzzle Elements ---
         # Gears just spin and are dangerous
         self.gears = [
@@ -23,11 +24,11 @@ class Level7(Level):
             Gear(x=20, y=15, radius=5, speed=-1.5),
             Gear(x=30, y=6, radius=4, speed=2)
         ]
-        
+
         # --- Place keys in dangerous spots ---
         self.keys = [
-            Key(x=10, y=13), # Tucked under gear 1
-            Key(x=15, y=15), # Between gear 1 and 2
+            Key(x=10, y=13),  # Tucked under gear 1
+            Key(x=15, y=15),  # Between gear 1 and 2
             Key(x=30, y=11)  # Tucked under gear 3
         ]
 
@@ -49,7 +50,7 @@ class Level7(Level):
         obstacles = self.walls.copy()
         for gear in self.gears:
             obstacles.update(gear.get_hazard_tiles())
-            obstacles.add(gear.get_axle_tile()) # Add center axle as an obstacle
+            obstacles.add(gear.get_axle_tile())  # Add center axle as an obstacle
         return obstacles
 
     def handle_event(self, event):
@@ -66,12 +67,12 @@ class Level7(Level):
         for gear in self.gears:
             gear.update()
             all_hazards.update(gear.get_hazard_tiles())
-            all_hazards.add(gear.get_axle_tile()) # Axle is also a hazard
+            all_hazards.add(gear.get_axle_tile())  # Axle is also a hazard
 
         # --- Action Element: Check for player death ---
         if (self.player.x, self.player.y) in all_hazards:
             print("Hit by gear! Resetting level.")
-            self.__init__() # Reload the level
+            self.__init__()  # Reload the level
             return
 
         # --- Key Collection Logic ---
@@ -79,11 +80,11 @@ class Level7(Level):
             if not k.collected and (self.player.x, self.player.y) == (k.x, k.y):
                 k.collected = True
                 print("Collected a key!")
-        
+
         # --- Win Condition Logic ---
         if all(k.collected for k in self.keys):
             self.door.locked = False
-        
+
         if not self.door.locked and (self.player.x, self.player.y) == (self.door.x, self.door.y):
             print("Level 7 Complete!")
             self.is_complete = True
@@ -92,9 +93,9 @@ class Level7(Level):
         """Draws the room, gears, player, and door."""
         camx = max(0, min(self.player.x - VIEW_W // 2, self.grid_w - VIEW_W))
         camy = max(0, min(self.player.y - VIEW_H // 2, self.grid_h - VIEW_H))
-        
+
         surface.fill(BLACK)
-        
+
         # Draw walls
         for (x, y) in self.walls:
             if camx <= x < camx + VIEW_W and camy <= y < camy + VIEW_H:
@@ -103,11 +104,11 @@ class Level7(Level):
         # Draw gears
         for gear in self.gears:
             gear.draw(surface, camx, camy)
-            
+
         # --- Draw keys ---
         for k in self.keys:
             k.draw(surface, camx, camy)
-        
+
         # Draw player and door
         self.door.draw(surface, camx, camy)
         self.player.draw(surface, camx, camy)
