@@ -1,3 +1,7 @@
+# main.py
+import pygame, sys
+from settings import *
+
 # Import all your level classes
 from levels.level1 import Level1
 from levels.level2 import Level2
